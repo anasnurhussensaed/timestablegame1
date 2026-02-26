@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Adaptive Times Table Game</title>
+<style>
+body {
+  font-family: "Trebuchet MS", sans-serif;
+  background: radial-gradient(circle at top, #3a1c71, #000);
+  color: white;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+h1,h2,h3 { text-shadow: 0 0 10px #00ffff; }
+.game-box {
+  background: rgba(0,0,0,0.7);
+  border-radius: 20px;
+  padding: 20px;
+  width: 350px;
+  margin: 20px auto;
+  box-shadow: 0 0 20px #00ffff;
+}
+button {
+  padding: 10px 15px;
+  margin: 5px;
+  border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  background: linear-gradient(to bottom, #00c6ff, #0072ff);
+  color: white;
+  box-shadow: 0 0 10px #00f2ff;
+  transition: transform 0.2s;
+}
+button:hover { transform: scale(1.1); }
+.question { font-size: 32px; margin: 20px; text-shadow: 0 0 10px yellow; }
+.correct { animation: bounce 0.3s; background: limegreen !important; }
+.wrong { animation: shake 0.3s; background: crimson !important; }
+.fire { font-size: 28px; animation: glow 0.5s infinite alternate; }
+@keyframes bounce {0%{transform:scale(1);}50%{transform:scale(1.3);}100%{transform:scale(1);}}
+@keyframes shake {0%{transform:translateX(0);}25%{transform:translateX(-5px);}50%{transform:translateX(5px);}75%{transform:translateX(-5px);}100%{transform:translateX(0);}}
+@keyframes glow {from{text-shadow:0 0 10px orange;} to{text-shadow:0 0 25px yellow;}}
+input {padding:8px; margin:5px; border-radius:6px; border:none;}
+</style>
+</head>
+<body>
+
+<!-- Mode selection -->
+<div id="modeSelect">
+  <h1>Times Table Game</h1>
+  <button onclick="showStudentLogin()">Student Login</button>
+  <button onclick="showTeacherLogin()">Teacher Login</button>
+</div>
+
+<!-- Student Login -->
+<div id="studentLogin" style="display:none;">
+  <h2>Student Login / Register</h2>
+  <input id="studentUser" placeholder="Username"><br>
+  <input id="studentPass" type="password" placeholder="Password"><br><br>
+  <button onclick="loginStudent()">Login</button>
+  <button onclick="registerStudent()">Register</button>
+  <p><b>Your Homework:</b></p>
+  <p id="studentHomework">No homework assigned</p>
+</div>
+
+<!-- Teacher Login -->
+<div id="teacherLogin" style="display:none;">
+  <h2>Teacher Login</h2>
+  <input id="teacherPassword" placeholder="Enter teacher password"><br><br>
+  <button onclick="loginTeacher()">Login</button>
+</div>
+
+<!-- Teacher Dashboard -->
+<div id="teacherDashboard" style="display:none;">
+  <h2>Class Dashboard</h2>
+  <h3>Registered Students</h3>
+  <ul id="studentList"></ul>
+  <h3>Homework Assignment</h3>
+  <input id="homeworkText" placeholder="e.g. Practice 3x and 4x tables"><br>
+  <button onclick="assignHomework()">Assign Homework</button>
+  <button onclick="clearHomework()">Clear Homework</button>
+  <p><b>Current Homework:</b></p>
+  <p id="currentHomework">None</p>
+  <button onclick="backToMenu()">Back</button>
+</div>
+
+<!-- Game Screen -->
+<div id="gameScreen" style="display:none;">
+  <h1>Times Table Game</h1>
+  <p>Player: <span id="playerDisplay"></span></p>
+  <p>Avatar: <span id="avatarDisplay"></span></p>
+  <p id="turnDisplay"></p>
+  <p>Player 1 Score: <span id="score1">0</span> | Player 2 Score: <span id="score2">0</span></p>
+
+  <div>
+    <button onclick="setMode('Studio')">Studio</button>
+    <button onclick="setMode('Garage')">Garage</button>
+    <button onclick="setMode('Soundcheck')">Soundcheck</button>
+    <button onclick="setMode('Gig')">Gig</button>
+    <button onclick="startMultiplayer()">Multiplayer</button>
+    <button onclick="openShop()">Shop</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div class="game-box">
+    <div class="question" id="question">?</div>
+    <div id="answers"></div>
+    <p>Score: <span id="score">0</span></p>
+    <p>Streak: <span id="streak">0</span> <span class="fire" id="fire"></span></p>
+    <p>Time Left: <span id="time">0</span></p>
+  </div>
+
+  <h2>Leaderboard</h2>
+  <ol id="leaderboard"></ol>
+</div>
+
+<!-- Shop Screen -->
+<div id="shopScreen" style="display:none;">
+  <h2>Shop</h2>
+  <p>Your Points: <span id="shopPoints">0</span></p>
+  <h3>Avatars</h3>
+  <button onclick="buyItem('🤖 Robot',10)">🤖 Robot (10 pts)</button>
+  <button onclick="buyItem('🐉 Dragon',20)">🐉 Dragon (20 pts)</button>
+  <button onclick="buyItem('🦄 Unicorn',30)">🦄 Unicorn (30 pts)</button>
+  <h3>Music</h3>
+  <button onclick="buyMusic('rock')">🎸 Rock Music (15 pts)</button>
+  <button onclick="buyMusic('christmas')">🎄 Christmas Music (15 pts)</button>
+  <br><br>
+  <button onclick="backToGame()">Back</button>
+</div>
+
+<script>
+// ---------------- Variables ----------------
+let students = JSON.parse(localStorage.getItem("students"))||[];
+let classScores = JSON.parse(localStorage.getItem("classScores"))||[];
+let homework = localStorage.getItem("homework")||"";
+let leaderboard = JSON.parse(localStorage.getItem("leaderboard"))||[];
+let ownedItems = JSON.parse(localStorage.getItem("ownedItems"))||[];
+let ownedMusic = JSON.parse(localStorage.getItem("ownedMusic"))||[];
+
+let currentPlayer="", currentAvatar="";
+let player1="", player2="", avatar2="", score1=0, score2=0, currentTurn=1;
+let score=0, streak=0, timeLeft=0, timer;
+let weak={}; for(let i=1;i<=12;i++) weak[i]=0;
+const modes={Studio:60, Garage:45, Soundcheck:90, Gig:120};
+const teacherPass = "1234"; // teacher password
+
+// ---------------- Login / Register ----------------
+function showStudentLogin(){
+  document.getElementById("modeSelect").style.display="none";
+  document.getElementById("studentLogin").style.display="block";
+  document.getElementById("studentHomework").innerText = homework==""?"No homework assigned":homework;
+}
+function showTeacherLogin(){
+  document.getElementById("modeSelect").style.display="none";
+  document.getElementById("teacherLogin").style.display="block";
+}
+function registerStudent(){
+  let user=document.getElementById("studentUser").value;
+  let pass=document.getElementById("studentPass").value;
+  if(user==""||pass==""){alert("Enter username and password"); return;}
+  if(students.find(s=>s.user==user)){alert("Username exists"); return;}
+  students.push({user:user, pass:pass, score:0});
+  localStorage.setItem("students", JSON.stringify(students));
+  alert("Account created! Now login.");
+}
+function loginStudent(){
+  let user=document.getElementById("studentUser").value;
+  let pass=document.getElementById("studentPass").value;
+  let student = students.find(s=>s.user==user && s.pass==pass);
+  if(!student){alert("Wrong username or password"); return;}
+  currentPlayer = student.user;
+  score = student.score;
+  document.getElementById("studentLogin").style.display="none";
+  document.getElementById("gameScreen").style.display="block";
+  document.getElementById("studentHomework").innerText = homework==""?"No homework assigned":homework;
+  setMode("Studio");
+}
+
+// ---------------- Teacher ----------------
+function loginTeacher(){
+  let pass = document.getElementById("teacherPassword").value;
+  if(pass!==teacherPass){alert("Wrong password"); return;}
+  document.getElementById("teacherLogin").style.display="none";
+  document.getElementById("teacherDashboard").style.display="block";
+  showStudents();
+  showClassList();
+  document.getElementById("currentHomework").innerText = homework==""?"None":homework;
+}
+function showStudents(){
+  let list=document.getElementById("studentList"); list.innerHTML="";
+  students.forEach(s=>{let li=document.createElement("li"); li.innerText=s.user+" - Score: "+s.score; list.appendChild(li);});
+}
+function showClassList(){
+  let list=document.getElementById("classList"); list.innerHTML="";
+  classScores.forEach(s=>{let li=document.createElement("li"); li.innerText=s.name+" - "+s.score; list.appendChild(li);});
+}
+function assignHomework(){
+  let text=document.getElementById("homeworkText").value;
+  if(text==""){alert("Enter homework"); return;}
+  homework=text;
+  localStorage.setItem("homework",homework);
+  document.getElementById("currentHomework").innerText=homework;
+  alert("Homework assigned!");
+}
+function clearHomework(){
+  homework=""; localStorage.removeItem("homework");
+  document.getElementById("currentHomework").innerText="None";
+}
+function backToMenu(){
+  document.getElementById("teacherDashboard").style.display="none";
+  document.getElementById("modeSelect").style.display="block";
+}
+
+// ---------------- Avatars ----------------
+function selectAvatar(item){ currentAvatar=item; document.getElementById("avatarDisplay").innerText=item; }
+function buyItem(item,cost){if(score<cost){alert("Not enough points"); return;} if(ownedItems.includes(item)){alert("Already owned"); return;} score-=cost; ownedItems.push(item); localStorage.setItem("ownedItems",JSON.stringify(ownedItems)); alert("Bought "+item); document.getElementById("shopPoints").innerText=score;}
+function buyMusic(type){if(score<15){alert("Not enough points"); return;} if(ownedMusic.includes(type)){alert("Already owned"); return;} score-=15; ownedMusic.push(type); localStorage.setItem("ownedMusic",JSON.stringify(ownedMusic)); alert(type+" music unlocked!");}
+function openShop(){document.getElementById("gameScreen").style.display="none"; document.getElementById("shopScreen").style.display="block"; document.getElementById("shopPoints").innerText=score;}
+function backToGame(){document.getElementById("shopScreen").style.display="none"; document.getElementById("gameScreen").style.display="block";}
+
+// ---------------- Game Logic ----------------
+function pick(){let sum=0;for(let i=1;i<=12;i++)sum+=1+weak[i];let r=Math.random()*sum;for(let i=1;i<=12;i++){r-=1+weak[i]; if(r<=0) return i;} return 1;}
+function newQuestion(){
+  let a=pick(),b=pick(); let correct=a*b; window.correctAnswer=correct;
+  document.getElementById("question").innerText=a+" × "+b;
+  let answers=[correct]; while(answers.length<4){let w=Math.floor(Math.random()*144)+1; if(!answers.includes(w)) answers.push(w);}
+  answers.sort(()=>Math.random()-0.5); let html=""; answers.forEach(x=>{html+=`<button onclick="check(${x},${correct},${a},${b})">${x}</button>`}); document.getElementById("answers").innerHTML=html;
+}
+function check(ans,correct,a,b){
+  let buttons=document.querySelectorAll("#answers button"); buttons.forEach(btn=>{if(Number(btn.innerText)===ans){btn.classList.add(ans===correct?"correct":"wrong");}});
+  if(ans===correct){score+=10+streak*2; streak++;} else {streak=0; weak[a]++; weak[b]++;}
+  document.getElementById("score").innerText=score;
+  document.getElementById("streak").innerText=streak;
+  document.getElementById("fire").innerText=streak>=3?"🔥":"";
+  setTimeout(newQuestion,400);
+}
+function setMode(m){score=0; streak=0; for(let i=1;i<=12;i++) weak[i]=0; clearInterval(timer); timeLeft=modes[m]; document.getElementById("time").innerText=timeLeft;
+  timer=setInterval(()=>{timeLeft--; document.getElementById("time").innerText=timeLeft; if(timeLeft<=0){clearInterval(timer); saveScore(); alert("Game Over! Score: "+score); setMode(m);}},1000); newQuestion();
+}
+function saveScore(){if(currentPlayer!=""){let student=students.find(s=>s.user===currentPlayer); if(student){student.score=score; localStorage.setItem("students",JSON.stringify(students));} leaderboard.push({name:currentPlayer, score:score, avatar:currentAvatar}); leaderboard.sort((a,b)=>b.score-a.score); leaderboard=leaderboard.slice(0,5); localStorage.setItem("leaderboard",JSON.stringify(leaderboard)); showLeaderboard(); classScores.push({name:currentPlayer, score:score}); localStorage.setItem("classScores",JSON.stringify(classScores));}}
+
+function showLeaderboard(){let list=document.getElementById("leaderboard"); list.innerHTML=""; leaderboard.forEach(p=>{let li=document.createElement("li"); li.innerText=(p.avatar?p.avatar+" ":"")+p.name+" - "+p.score; list.appendChild(li);});}
+
+// ---------------- Logout ----------------
+function logout(){document.getElementById("gameScreen").style.display="none"; document.getElementById("modeSelect").style.display="block"; score=0; streak=0;}
+
+// ---------------- Multiplayer placeholder ----------------
+function startMultiplayer(){alert("Multiplayer mode coming soon! Single player enabled for now.");}
+
+</script>
+</body>
+</html>
